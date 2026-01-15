@@ -1,0 +1,149 @@
+'use client';
+
+import { motion } from 'framer-motion';
+import { Habit } from '@/types/habit';
+import { calculateStreak, getWeekDates, getTodayString } from '@/lib/dates';
+import { Flame, Target, Trophy, TrendingUp, Calendar, Zap } from 'lucide-react';
+import { useMemo } from 'react';
+
+interface StatisticsProps {
+  habits: Habit[];
+}
+
+export function Statistics({ habits }: StatisticsProps) {
+  const stats = useMemo(() => {
+    const today = getTodayString();
+    const weekDates = getWeekDates();
+
+    // Total completions today
+    const todayCompletions = habits.filter((h) =>
+      h.completedDates.includes(today)
+    ).length;
+
+    // Weekly completion rate
+    const weeklyTotal = habits.length * 7;
+    const weeklyCompleted = habits.reduce((sum, habit) => {
+      return sum + weekDates.filter((d) => habit.completedDates.includes(d)).length;
+    }, 0);
+    const weeklyRate = weeklyTotal > 0 ? Math.round((weeklyCompleted / weeklyTotal) * 100) : 0;
+
+    // Best streak across all habits
+    const bestStreak = Math.max(0, ...habits.map((h) => calculateStreak(h.completedDates)));
+
+    // Current active streaks
+    const activeStreaks = habits.filter((h) => calculateStreak(h.completedDates) > 0).length;
+
+    // Total all-time completions
+    const totalCompletions = habits.reduce((sum, h) => sum + h.completedDates.length, 0);
+
+    // Perfect days (all habits completed)
+    const allDates = new Set(habits.flatMap((h) => h.completedDates));
+    let perfectDays = 0;
+    allDates.forEach((date) => {
+      const completedOnDate = habits.filter((h) => h.completedDates.includes(date)).length;
+      if (completedOnDate === habits.length && habits.length > 0) {
+        perfectDays++;
+      }
+    });
+
+    return {
+      todayCompletions,
+      todayTotal: habits.length,
+      weeklyRate,
+      bestStreak,
+      activeStreaks,
+      totalCompletions,
+      perfectDays,
+    };
+  }, [habits]);
+
+  if (habits.length === 0) return null;
+
+  const statCards = [
+    {
+      icon: Target,
+      label: 'Today',
+      value: `${stats.todayCompletions}/${stats.todayTotal}`,
+      color: 'from-violet-500 to-purple-600',
+      glow: 'shadow-violet-500/30',
+    },
+    {
+      icon: TrendingUp,
+      label: 'Weekly Rate',
+      value: `${stats.weeklyRate}%`,
+      color: 'from-emerald-500 to-teal-600',
+      glow: 'shadow-emerald-500/30',
+    },
+    {
+      icon: Flame,
+      label: 'Best Streak',
+      value: `${stats.bestStreak} days`,
+      color: 'from-orange-500 to-red-600',
+      glow: 'shadow-orange-500/30',
+    },
+    {
+      icon: Zap,
+      label: 'Active Streaks',
+      value: stats.activeStreaks.toString(),
+      color: 'from-amber-500 to-yellow-600',
+      glow: 'shadow-amber-500/30',
+    },
+    {
+      icon: Calendar,
+      label: 'Total Check-ins',
+      value: stats.totalCompletions.toString(),
+      color: 'from-sky-500 to-blue-600',
+      glow: 'shadow-sky-500/30',
+    },
+    {
+      icon: Trophy,
+      label: 'Perfect Days',
+      value: stats.perfectDays.toString(),
+      color: 'from-pink-500 to-rose-600',
+      glow: 'shadow-pink-500/30',
+    },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mb-6"
+    >
+      <h3 className="text-white font-semibold mb-4 text-lg">Statistics</h3>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {statCards.map((stat, index) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: index * 0.05 }}
+            whileHover={{ scale: 1.02, y: -2 }}
+            className={`glass rounded-xl p-4 relative overflow-hidden group`}
+          >
+            <div
+              className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-0 group-hover:opacity-10 transition-opacity`}
+            />
+
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`p-2 rounded-lg bg-gradient-to-br ${stat.color} ${stat.glow} shadow-lg`}>
+                <stat.icon className="w-4 h-4 text-white" />
+              </div>
+            </div>
+
+            <motion.p
+              key={stat.value}
+              initial={{ scale: 1.1 }}
+              animate={{ scale: 1 }}
+              className="text-2xl font-bold text-white"
+            >
+              {stat.value}
+            </motion.p>
+            <p className="text-xs text-white/50">{stat.label}</p>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
