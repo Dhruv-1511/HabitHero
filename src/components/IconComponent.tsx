@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import {
   Dumbbell,
   BookOpen,
@@ -43,7 +44,7 @@ interface IconComponentProps extends LucideProps {
   name: string;
 }
 
-export function IconComponent({ name, ...props }: IconComponentProps) {
+export const IconComponent = memo(function IconComponent({ name, ...props }: IconComponentProps) {
   const Icon = iconMap[name] || Heart;
   return <Icon {...props} />;
-}
+});

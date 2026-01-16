@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { formatDate } from '@/lib/dates';
 import { Bell, BellOff } from 'lucide-react';
@@ -10,8 +11,9 @@ interface HeaderProps {
   onRequestNotification: () => void;
 }
 
-export function Header({ notificationPermission, onRequestNotification }: HeaderProps) {
-  const today = new Date();
+export const Header = memo(function Header({ notificationPermission, onRequestNotification }: HeaderProps) {
+  const today = useMemo(() => new Date(), []);
+  const formattedDate = useMemo(() => formatDate(today), [today]);
 
   return (
     <motion.header
@@ -52,7 +54,7 @@ export function Header({ notificationPermission, onRequestNotification }: Header
             transition={{ delay: 0.2 }}
             className="text-white/50 text-sm mt-1 ml-14"
           >
-            {formatDate(today)}
+            {formattedDate}
           </motion.p>
         </div>
 
@@ -80,4 +82,4 @@ export function Header({ notificationPermission, onRequestNotification }: Header
       </div>
     </motion.header>
   );
-}
+});

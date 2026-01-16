@@ -1,30 +1,38 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Habit } from '@/types/habit';
 import { calculateStreak, getWeekDates, getTodayString } from '@/lib/dates';
 import { Flame, Target, Trophy, TrendingUp, Calendar, Zap } from 'lucide-react';
-import { useMemo } from 'react';
 
 interface StatisticsProps {
   habits: Habit[];
 }
 
-export function Statistics({ habits }: StatisticsProps) {
+export const Statistics = memo(function Statistics({ habits }: StatisticsProps) {
+  // Create a stable key based on actual completion data
+  const completionKey = useMemo(
+    () => habits.map((h) => `${h.id}:${h.completedDates.length}:${h.completedDates[h.completedDates.length - 1] || ''}`).join('|'),
+    [habits]
+  );
+
   const stats = useMemo(() => {
     const today = getTodayString();
     const weekDates = getWeekDates();
+    const habitsLength = habits.length;
+
+    // Pre-build Sets for O(1) lookups
+    const completedDateSets = habits.map((h) => new Set(h.completedDates));
 
     // Total completions today
-    const todayCompletions = habits.filter((h) =>
-      h.completedDates.includes(today)
-    ).length;
+    const todayCompletions = completedDateSets.filter((set) => set.has(today)).length;
 
-    // Weekly completion rate
-    const weeklyTotal = habits.length * 7;
-    const weeklyCompleted = habits.reduce((sum, habit) => {
-      return sum + weekDates.filter((d) => habit.completedDates.includes(d)).length;
+    // Weekly completion rate - use Set for faster lookups
+    const weeklyCompleted = completedDateSets.reduce((sum, dateSet) => {
+      return sum + weekDates.filter((d) => dateSet.has(d)).length;
     }, 0);
+    const weeklyTotal = habitsLength * 7;
     const weeklyRate = weeklyTotal > 0 ? Math.round((weeklyCompleted / weeklyTotal) * 100) : 0;
 
     // Best streak across all habits
@@ -36,26 +44,27 @@ export function Statistics({ habits }: StatisticsProps) {
     // Total all-time completions
     const totalCompletions = habits.reduce((sum, h) => sum + h.completedDates.length, 0);
 
-    // Perfect days (all habits completed)
+    // Perfect days (all habits completed) - optimized with Sets
     const allDates = new Set(habits.flatMap((h) => h.completedDates));
     let perfectDays = 0;
     allDates.forEach((date) => {
-      const completedOnDate = habits.filter((h) => h.completedDates.includes(date)).length;
-      if (completedOnDate === habits.length && habits.length > 0) {
+      const completedOnDate = completedDateSets.filter((set) => set.has(date)).length;
+      if (completedOnDate === habitsLength && habitsLength > 0) {
         perfectDays++;
       }
     });
 
     return {
       todayCompletions,
-      todayTotal: habits.length,
+      todayTotal: habitsLength,
       weeklyRate,
       bestStreak,
       activeStreaks,
       totalCompletions,
       perfectDays,
     };
-  }, [habits]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completionKey]);
 
   if (habits.length === 0) return null;
 
@@ -146,4 +155,4 @@ export function Statistics({ habits }: StatisticsProps) {
       </div>
     </motion.div>
   );
-}
+});

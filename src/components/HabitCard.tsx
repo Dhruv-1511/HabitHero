@@ -1,37 +1,69 @@
 'use client';
 
+import { memo, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Trash2, MessageCircle, Target } from 'lucide-react';
+import { Check, Trash2, MessageCircle, Target, Pencil, Calendar } from 'lucide-react';
 import { Habit, HABIT_COLORS, HABIT_CATEGORIES, HabitColor, HabitCategory } from '@/types/habit';
 import { getTodayString, calculateStreak, getWeekDates } from '@/lib/dates';
 import { IconComponent } from './IconComponent';
 import { StreakBadge } from './StreakBadge';
 import { Confetti } from './Confetti';
-import { useState } from 'react';
+import { EditHabitModal } from './EditHabitModal';
+import { ConfirmDialog } from './ConfirmDialog';
+import { HabitHistoryModal } from './HabitHistoryModal';
 
 interface HabitCardProps {
   habit: Habit;
   onToggle: (note?: string) => void;
   onDelete: () => void;
+  onEdit: (updates: Partial<Habit>) => void;
   playSound?: () => void;
 }
 
-export function HabitCard({ habit, onToggle, onDelete, playSound }: HabitCardProps) {
-  const today = getTodayString();
-  const isCompleted = habit.completedDates.includes(today);
-  const streak = calculateStreak(habit.completedDates);
-  const colors = HABIT_COLORS[habit.color as HabitColor] || HABIT_COLORS.emerald;
-  const category = HABIT_CATEGORIES[habit.category as HabitCategory];
+export const HabitCard = memo(function HabitCard({ habit, onToggle, onDelete, onEdit, playSound }: HabitCardProps) {
   const [showConfetti, setShowConfetti] = useState(false);
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [note, setNote] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
-  // Calculate weekly progress
-  const weekDates = getWeekDates();
-  const weeklyCompleted = weekDates.filter((d) => habit.completedDates.includes(d)).length;
-  const weeklyProgress = (weeklyCompleted / habit.weeklyGoal) * 100;
+  // Memoize expensive calculations
+  const today = useMemo(() => getTodayString(), []);
+  const isCompleted = useMemo(
+    () => habit.completedDates.includes(today),
+    [habit.completedDates, today]
+  );
+  const streak = useMemo(
+    () => calculateStreak(habit.completedDates),
+    [habit.completedDates]
+  );
+  const colors = useMemo(
+    () => HABIT_COLORS[habit.color as HabitColor] || HABIT_COLORS.emerald,
+    [habit.color]
+  );
+  const category = useMemo(
+    () => HABIT_CATEGORIES[habit.category as HabitCategory],
+    [habit.category]
+  );
 
-  const handleToggle = () => {
+  // Memoize weekly progress calculation
+  const { weeklyCompleted, weeklyProgress } = useMemo(() => {
+    const weekDates = getWeekDates();
+    const completed = weekDates.filter((d) => habit.completedDates.includes(d)).length;
+    return {
+      weeklyCompleted: completed,
+      weeklyProgress: (completed / habit.weeklyGoal) * 100,
+    };
+  }, [habit.completedDates, habit.weeklyGoal]);
+
+  const todayNote = useMemo(
+    () => habit.notes.find((n) => n.date === today),
+    [habit.notes, today]
+  );
+
+  // Memoize handlers
+  const handleToggle = useCallback(() => {
     if (!isCompleted) {
       setShowConfetti(true);
       playSound?.();
@@ -40,13 +72,39 @@ export function HabitCard({ habit, onToggle, onDelete, playSound }: HabitCardPro
     onToggle(note || undefined);
     setNote('');
     setShowNoteInput(false);
-  };
+  }, [isCompleted, note, onToggle, playSound]);
 
-  const handleNoteSubmit = () => {
+  const handleNoteSubmit = useCallback(() => {
     handleToggle();
-  };
+  }, [handleToggle]);
 
-  const todayNote = habit.notes.find((n) => n.date === today);
+  const toggleNoteInput = useCallback(() => {
+    setShowNoteInput((prev) => !prev);
+  }, []);
+
+  const handleNoteChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setNote(e.target.value);
+  }, []);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') handleNoteSubmit();
+    },
+    [handleNoteSubmit]
+  );
+
+  const handleEdit = useCallback((updates: Partial<Habit>) => {
+    onEdit(updates);
+    setShowEditModal(false);
+  }, [onEdit]);
+
+  const handleDeleteClick = useCallback(() => {
+    setShowDeleteConfirm(true);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(() => {
+    onDelete();
+  }, [onDelete]);
 
   return (
     <motion.div
@@ -83,20 +141,40 @@ export function HabitCard({ habit, onToggle, onDelete, playSound }: HabitCardPro
           </span>
           <div className="flex items-center gap-1">
             <motion.button
-              onClick={() => setShowNoteInput(!showNoteInput)}
+              onClick={() => setShowHistoryModal(true)}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              className="p-1.5 text-white/30 hover:text-sky-400 hover:bg-sky-500/20 rounded-lg transition-colors"
+              title="View history"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+            </motion.button>
+            <motion.button
+              onClick={() => setShowEditModal(true)}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              className="p-1.5 text-white/30 hover:text-emerald-400 hover:bg-emerald-500/20 rounded-lg transition-colors"
+              title="Edit habit"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </motion.button>
+            <motion.button
+              onClick={toggleNoteInput}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               className={`p-1.5 rounded-lg transition-colors ${
                 todayNote ? 'text-violet-400 bg-violet-500/20' : 'text-white/30 hover:text-white/60 hover:bg-white/10'
               }`}
+              title="Add note"
             >
               <MessageCircle className="w-3.5 h-3.5" />
             </motion.button>
             <motion.button
-              onClick={onDelete}
+              onClick={handleDeleteClick}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               className="p-1.5 text-white/30 hover:text-rose-400 hover:bg-rose-500/20 rounded-lg transition-colors"
+              title="Delete habit"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </motion.button>
@@ -201,10 +279,10 @@ export function HabitCard({ habit, onToggle, onDelete, playSound }: HabitCardPro
                 <input
                   type="text"
                   value={note}
-                  onChange={(e) => setNote(e.target.value)}
+                  onChange={handleNoteChange}
                   placeholder="Add a note for today..."
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
-                  onKeyDown={(e) => e.key === 'Enter' && handleNoteSubmit()}
+                  onKeyDown={handleKeyDown}
                 />
                 {todayNote && !note && (
                   <p className="text-xs text-white/40 mt-2 italic">
@@ -216,6 +294,30 @@ export function HabitCard({ habit, onToggle, onDelete, playSound }: HabitCardPro
           )}
         </AnimatePresence>
       </div>
+
+      {/* Modals */}
+      <EditHabitModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        habit={habit}
+        onSave={handleEdit}
+      />
+
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Habit"
+        message={`Are you sure you want to delete "${habit.name}"? This action cannot be undone and all progress will be lost.`}
+        confirmText="Delete"
+        variant="danger"
+      />
+
+      <HabitHistoryModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        habit={habit}
+      />
     </motion.div>
   );
-}
+});

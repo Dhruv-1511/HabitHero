@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, Sparkles } from 'lucide-react';
 import {
@@ -27,7 +27,7 @@ interface AddHabitModalProps {
   }) => void;
 }
 
-export function AddHabitModal({ isOpen, onClose, onAdd }: AddHabitModalProps) {
+export const AddHabitModal = memo(function AddHabitModal({ isOpen, onClose, onAdd }: AddHabitModalProps) {
   const [mode, setMode] = useState<'templates' | 'custom'>('templates');
   const [name, setName] = useState('');
   const [icon, setIcon] = useState<HabitIcon>('heart');
@@ -36,7 +36,7 @@ export function AddHabitModal({ isOpen, onClose, onAdd }: AddHabitModalProps) {
   const [weeklyGoal, setWeeklyGoal] = useState(7);
   const [reminderTime, setReminderTime] = useState('');
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setName('');
     setIcon('heart');
     setColor('emerald');
@@ -44,9 +44,9 @@ export function AddHabitModal({ isOpen, onClose, onAdd }: AddHabitModalProps) {
     setWeeklyGoal(7);
     setReminderTime('');
     setMode('templates');
-  };
+  }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
@@ -61,9 +61,9 @@ export function AddHabitModal({ isOpen, onClose, onAdd }: AddHabitModalProps) {
 
     resetForm();
     onClose();
-  };
+  }, [name, icon, color, category, weeklyGoal, reminderTime, onAdd, onClose, resetForm]);
 
-  const handleTemplateSelect = (template: typeof HABIT_TEMPLATES[0]) => {
+  const handleTemplateSelect = useCallback((template: typeof HABIT_TEMPLATES[0]) => {
     onAdd({
       name: template.name,
       icon: template.icon,
@@ -73,7 +73,12 @@ export function AddHabitModal({ isOpen, onClose, onAdd }: AddHabitModalProps) {
     });
     resetForm();
     onClose();
-  };
+  }, [onAdd, onClose, resetForm]);
+
+  const handleClose = useCallback(() => {
+    resetForm();
+    onClose();
+  }, [resetForm, onClose]);
 
   return (
     <AnimatePresence>
@@ -102,7 +107,7 @@ export function AddHabitModal({ isOpen, onClose, onAdd }: AddHabitModalProps) {
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                onClick={() => { resetForm(); onClose(); }}
+                onClick={handleClose}
                 className="p-2 hover:bg-white/10 rounded-full transition-colors"
               >
                 <X className="w-5 h-5 text-white/60" />
@@ -296,4 +301,4 @@ export function AddHabitModal({ isOpen, onClose, onAdd }: AddHabitModalProps) {
       )}
     </AnimatePresence>
   );
-}
+});

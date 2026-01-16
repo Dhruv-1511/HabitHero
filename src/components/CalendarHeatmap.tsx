@@ -1,17 +1,27 @@
 'use client';
 
+import { memo, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Habit } from '@/types/habit';
-import { useMemo } from 'react';
 
 interface CalendarHeatmapProps {
   habits: Habit[];
 }
 
-export function CalendarHeatmap({ habits }: CalendarHeatmapProps) {
+export const CalendarHeatmap = memo(function CalendarHeatmap({ habits }: CalendarHeatmapProps) {
+  // Create a stable key based on actual completion data, not habits array reference
+  const completionKey = useMemo(
+    () => habits.map((h) => `${h.id}:${h.completedDates.length}`).join('|'),
+    [habits]
+  );
+
   const heatmapData = useMemo(() => {
     const data: Record<string, number> = {};
     const today = new Date();
+    const habitsLength = habits.length;
+
+    // Pre-build a Set of all completed dates for O(1) lookups
+    const completedDateSets = habits.map((h) => new Set(h.completedDates));
 
     // Get data for the last 365 days
     for (let i = 364; i >= 0; i--) {
@@ -19,15 +29,18 @@ export function CalendarHeatmap({ habits }: CalendarHeatmapProps) {
       date.setDate(date.getDate() - i);
       const dateString = date.toISOString().split('T')[0];
 
-      const completedCount = habits.filter((h) =>
-        h.completedDates.includes(dateString)
-      ).length;
+      // Count completions using Set lookups (O(1) per habit instead of O(n))
+      let completedCount = 0;
+      for (const dateSet of completedDateSets) {
+        if (dateSet.has(dateString)) completedCount++;
+      }
 
-      data[dateString] = habits.length > 0 ? completedCount / habits.length : 0;
+      data[dateString] = habitsLength > 0 ? completedCount / habitsLength : 0;
     }
 
     return data;
-  }, [habits]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completionKey]);
 
   const weeks = useMemo(() => {
     const result: { date: string; level: number }[][] = [];
@@ -84,7 +97,7 @@ export function CalendarHeatmap({ habits }: CalendarHeatmapProps) {
     return result;
   }, [weeks]);
 
-  const getLevelColor = (level: number) => {
+  const getLevelColor = useCallback((level: number) => {
     switch (level) {
       case -1: return 'bg-transparent';
       case 0: return 'bg-white/5';
@@ -95,7 +108,7 @@ export function CalendarHeatmap({ habits }: CalendarHeatmapProps) {
       case 5: return 'bg-emerald-400 shadow-lg shadow-emerald-500/30';
       default: return 'bg-white/5';
     }
-  };
+  }, []);
 
   if (habits.length === 0) return null;
 
@@ -163,4 +176,4 @@ export function CalendarHeatmap({ habits }: CalendarHeatmapProps) {
       </div>
     </motion.div>
   );
-}
+});

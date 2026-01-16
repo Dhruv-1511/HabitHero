@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, ResponsiveContainer, Cell } from 'recharts';
 import { Habit } from '@/types/habit';
@@ -10,28 +11,40 @@ interface ProgressChartProps {
   habits: Habit[];
 }
 
-export function ProgressChart({ habits }: ProgressChartProps) {
-  const weekDates = getWeekDates();
-  const today = getTodayString();
+export const ProgressChart = memo(function ProgressChart({ habits }: ProgressChartProps) {
+  // Create a stable key based on completion data
+  const completionKey = useMemo(
+    () => habits.map((h) => `${h.id}:${h.completedDates.length}`).join('|'),
+    [habits]
+  );
 
-  const data = weekDates.map((date) => {
-    const completedCount = habits.filter((habit) =>
-      habit.completedDates.includes(date)
-    ).length;
+  const { data, weeklyPercentage } = useMemo(() => {
+    const weekDates = getWeekDates();
+    const today = getTodayString();
+    const habitsLength = habits.length;
 
-    return {
-      day: getDayName(date),
-      completed: completedCount,
-      total: habits.length,
-      percentage: habits.length > 0 ? (completedCount / habits.length) * 100 : 0,
-      isToday: date === today,
-    };
-  });
+    // Pre-build Sets for O(1) lookups
+    const completedDateSets = habits.map((h) => new Set(h.completedDates));
 
-  const weeklyCompletion = data.reduce((sum, d) => sum + d.completed, 0);
-  const weeklyTotal = data.reduce((sum, d) => sum + d.total, 0);
-  const weeklyPercentage =
-    weeklyTotal > 0 ? Math.round((weeklyCompletion / weeklyTotal) * 100) : 0;
+    const chartData = weekDates.map((date) => {
+      const completedCount = completedDateSets.filter((set) => set.has(date)).length;
+
+      return {
+        day: getDayName(date),
+        completed: completedCount,
+        total: habitsLength,
+        percentage: habitsLength > 0 ? (completedCount / habitsLength) * 100 : 0,
+        isToday: date === today,
+      };
+    });
+
+    const weeklyCompletion = chartData.reduce((sum, d) => sum + d.completed, 0);
+    const weeklyTotal = chartData.reduce((sum, d) => sum + d.total, 0);
+    const percentage = weeklyTotal > 0 ? Math.round((weeklyCompletion / weeklyTotal) * 100) : 0;
+
+    return { data: chartData, weeklyPercentage: percentage };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completionKey]);
 
   if (habits.length === 0) return null;
 
@@ -81,4 +94,4 @@ export function ProgressChart({ habits }: ProgressChartProps) {
       </div>
     </motion.div>
   );
-}
+});

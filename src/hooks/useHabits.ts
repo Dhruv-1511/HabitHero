@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Habit, HabitCategory, HabitNote } from '@/types/habit';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Habit, HabitCategory } from '@/types/habit';
 import { getStoredHabits, setStoredHabits, generateId } from '@/lib/storage';
 import { getTodayString } from '@/lib/dates';
 
 export function useHabits() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const stored = getStoredHabits();
@@ -22,10 +23,25 @@ export function useHabits() {
     setIsLoaded(true);
   }, []);
 
+  // Debounced localStorage write - prevents excessive I/O
   useEffect(() => {
-    if (isLoaded) {
-      setStoredHabits(habits);
+    if (!isLoaded) return;
+
+    // Clear any pending save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
+
+    // Debounce writes by 300ms
+    saveTimeoutRef.current = setTimeout(() => {
+      setStoredHabits(habits);
+    }, 300);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, [habits, isLoaded]);
 
   const addHabit = useCallback((habit: Omit<Habit, 'id' | 'createdAt' | 'completedDates' | 'notes'>) => {

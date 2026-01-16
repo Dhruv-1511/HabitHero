@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Flame } from 'lucide-react';
 
@@ -7,7 +8,7 @@ interface StreakBadgeProps {
   streak: number;
 }
 
-export function StreakBadge({ streak }: StreakBadgeProps) {
+export const StreakBadge = memo(function StreakBadge({ streak }: StreakBadgeProps) {
   const isMilestone = streak === 7 || streak === 30 || streak === 100 || streak === 365;
 
   return (
@@ -44,4 +45,4 @@ export function StreakBadge({ streak }: StreakBadgeProps) {
       </motion.span>
     </motion.div>
   );
-}
+});

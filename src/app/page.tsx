@@ -1,26 +1,68 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Home, BarChart3, Calendar } from 'lucide-react';
 import { useHabits } from '@/hooks/useHabits';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
+import { useFilteredHabits } from '@/hooks/useFilteredHabits';
+import { useUndoStack } from '@/hooks/useUndoStack';
 import { Header } from '@/components/Header';
 import { HabitList } from '@/components/HabitList';
 import { AddHabitModal } from '@/components/AddHabitModal';
 import { MotivationalQuote } from '@/components/MotivationalQuote';
 import { Statistics } from '@/components/Statistics';
 import { CalendarHeatmap } from '@/components/CalendarHeatmap';
+import { SearchFilter } from '@/components/SearchFilter';
+import { UndoToast } from '@/components/UndoToast';
+import { HabitCategory, Habit } from '@/types/habit';
 
 type Tab = 'home' | 'stats' | 'calendar';
 
 export default function HomePage() {
-  const { habits, isLoaded, addHabit, toggleHabit, deleteHabit } = useHabits();
+  const { habits, isLoaded, addHabit, toggleHabit, deleteHabit, updateHabit } = useHabits();
   const { permission, requestPermission } = useNotifications();
   const { playComplete } = useSoundEffects();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('home');
+
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<HabitCategory | 'all'>('all');
+
+  // Undo stack
+  const { push: pushUndo, pop: popUndo, lastAction } = useUndoStack();
+  const [showUndoToast, setShowUndoToast] = useState(false);
+
+  // Apply filters
+  const filteredHabits = useFilteredHabits(habits, searchQuery, selectedCategory);
+
+  // Handle delete with undo
+  const handleDelete = useCallback((id: string) => {
+    const habitToDelete = habits.find(h => h.id === id);
+    if (!habitToDelete) return;
+
+    deleteHabit(id);
+    pushUndo(`Deleted "${habitToDelete.name}"`, () => {
+      addHabit(habitToDelete);
+    });
+    setShowUndoToast(true);
+  }, [habits, deleteHabit, pushUndo, addHabit]);
+
+  // Handle undo
+  const handleUndo = useCallback(() => {
+    const action = popUndo();
+    if (action) {
+      action.undo();
+      setShowUndoToast(false);
+    }
+  }, [popUndo]);
+
+  // Handle edit
+  const handleEdit = useCallback((id: string, updates: Partial<Habit>) => {
+    updateHabit(id, updates);
+  }, [updateHabit]);
 
   if (!isLoaded) {
     return (
@@ -76,10 +118,20 @@ export default function HomePage() {
             >
               <MotivationalQuote />
 
+              {habits.length > 0 && (
+                <SearchFilter
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  selectedCategory={selectedCategory}
+                  onCategoryChange={setSelectedCategory}
+                />
+              )}
+
               <HabitList
-                habits={habits}
+                habits={filteredHabits}
                 onToggle={toggleHabit}
-                onDelete={deleteHabit}
+                onDelete={handleDelete}
+                onEdit={handleEdit}
                 playSound={playComplete}
               />
             </motion.div>
@@ -160,6 +212,13 @@ export default function HomePage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onAdd={addHabit}
+      />
+
+      <UndoToast
+        message={lastAction?.message || ''}
+        isVisible={showUndoToast && !!lastAction}
+        onUndo={handleUndo}
+        onDismiss={() => setShowUndoToast(false)}
       />
     </main>
   );

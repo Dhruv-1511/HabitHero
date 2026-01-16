@@ -1,6 +1,19 @@
+// Cache today's date string to avoid repeated Date object creation
+let cachedToday: { date: string; timestamp: number } | null = null;
+
 export function getTodayString(): string {
-  return new Date().toISOString().split('T')[0];
+  const now = Date.now();
+  // Cache valid for 60 seconds - will still catch day changes
+  if (cachedToday && now - cachedToday.timestamp < 60000) {
+    return cachedToday.date;
+  }
+  const dateString = new Date().toISOString().split('T')[0];
+  cachedToday = { date: dateString, timestamp: now };
+  return dateString;
 }
+
+// Cache week dates - invalidates when day changes
+let cachedWeekDates: { dates: string[]; today: string } | null = null;
 
 export function formatDate(date: Date): string {
   return date.toLocaleDateString('en-US', {
@@ -11,15 +24,23 @@ export function formatDate(date: Date): string {
 }
 
 export function getWeekDates(): string[] {
+  const today = getTodayString();
+
+  // Return cached result if still valid
+  if (cachedWeekDates && cachedWeekDates.today === today) {
+    return cachedWeekDates.dates;
+  }
+
   const dates: string[] = [];
-  const today = new Date();
+  const todayDate = new Date();
 
   for (let i = 6; i >= 0; i--) {
-    const date = new Date(today);
+    const date = new Date(todayDate);
     date.setDate(date.getDate() - i);
     dates.push(date.toISOString().split('T')[0]);
   }
 
+  cachedWeekDates = { dates, today };
   return dates;
 }
 

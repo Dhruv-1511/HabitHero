@@ -1,11 +1,11 @@
 'use client';
 
+import { memo, useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Quote, RefreshCw } from 'lucide-react';
 import { MOTIVATIONAL_QUOTES } from '@/types/habit';
-import { useState, useEffect } from 'react';
 
-export function MotivationalQuote() {
+export const MotivationalQuote = memo(function MotivationalQuote() {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -18,13 +18,13 @@ export function MotivationalQuote() {
     setQuoteIndex(dayOfYear % MOTIVATIONAL_QUOTES.length);
   }, []);
 
-  const refreshQuote = () => {
+  const refreshQuote = useCallback(() => {
     setIsAnimating(true);
     setTimeout(() => {
       setQuoteIndex((prev) => (prev + 1) % MOTIVATIONAL_QUOTES.length);
       setIsAnimating(false);
     }, 200);
-  };
+  }, []);
 
   const quote = MOTIVATIONAL_QUOTES[quoteIndex];
 
@@ -66,4 +66,4 @@ export function MotivationalQuote() {
       </div>
     </motion.div>
   );
-}
+});

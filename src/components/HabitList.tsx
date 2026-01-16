@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Habit } from '@/types/habit';
 import { HabitCard } from './HabitCard';
@@ -9,10 +10,11 @@ interface HabitListProps {
   habits: Habit[];
   onToggle: (id: string, note?: string) => void;
   onDelete: (id: string) => void;
+  onEdit: (id: string, updates: Partial<Habit>) => void;
   playSound?: () => void;
 }
 
-export function HabitList({ habits, onToggle, onDelete, playSound }: HabitListProps) {
+export const HabitList = memo(function HabitList({ habits, onToggle, onDelete, onEdit, playSound }: HabitListProps) {
   if (habits.length === 0) {
     return (
       <motion.div
@@ -80,6 +82,7 @@ export function HabitList({ habits, onToggle, onDelete, playSound }: HabitListPr
               habit={habit}
               onToggle={(note) => onToggle(habit.id, note)}
               onDelete={() => onDelete(habit.id)}
+              onEdit={(updates) => onEdit(habit.id, updates)}
               playSound={playSound}
             />
           </motion.div>
@@ -87,4 +90,4 @@ export function HabitList({ habits, onToggle, onDelete, playSound }: HabitListPr
       </AnimatePresence>
     </motion.div>
   );
-}
+});
